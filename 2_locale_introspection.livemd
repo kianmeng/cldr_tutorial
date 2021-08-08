@@ -40,9 +40,7 @@ end
 Application.put_env(:ex_cldr, :default_backend, MyApp.Backend)
 ```
 
-## Introspecting a complex locale
-
-Returning now to the example locale of `fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi`, the function `Cldr.display_name/2` can give some insight.
+## Introspecting a locale
 
 ```elixir
 # Also use the sigil `Cldr.LanguageTag.Sigil` 
@@ -50,6 +48,8 @@ import Cldr.LanguageTag.Sigil
 
 Cldr.display_name(~l"fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi")
 ```
+
+Returning now to the example locale of `fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi`, the function [Cldr.display_name/2](https://hexdocs.pm/ex_cldr/Cldr.html#display_name/2) can give some insight.
 
 There is a wealth of information returned which can be used to guide localisation towards a good user experience. This display name is showing that this locale is:
 
@@ -83,13 +83,13 @@ Even though no territory was specified, `ex_cldr` returned the territory code `:
 MyApp.Backend.Locale.territory_from_locale(~l"pt")
 ```
 
-Which returns `:BR` (Brazil) as the territory for the locale `pt` even though the language is "Portuguese".  To enforce the territory of "Portugal", the locale `pt-PT` would be required:
+Which returns `:BR` (Brazil) as the territory for the locale `pt` even though the language is "Portuguese".  To ensure the territory of "Portugal", the locale `pt-PT` would be required:
 
 ```elixir
 MyApp.Backend.Locale.territory_from_locale(~l"pt-PT")
 ```
 
-Sometimes a user would like their preferred territory to be different from that normally interpretted by a locale. For example, a user may specify the locale "en" which, as we say earlier, implies the territory "US". This may be exactly what the user prefers for most localisation requirements (like currency, number formatting and measurement system) but they would like to have the region to be considered differently for other purposes. This can be accomlished with the `rg` flag.
+Sometimes a user would like their preferred territory to be different from that normally interpretted by a locale. For example, a user may specify the locale "en" which, as noted earlier, implies the territory "US". This may be exactly what the user prefers for most localisation requirements (like currency, number formatting and measurement system) but they would like to have the region to be considered differently for other purposes. This can be accomlished with the `rg` option.
 
 ```elixir
 MyApp.Backend.Locale.territory_from_locale(~l"en-US-u-rg-AUZZZZ")
@@ -188,6 +188,8 @@ Cldr.Currency.currency_from_locale(~l"en-AU")
 Cldr.Currency.currency_from_locale(~l"en-AU-u-cu-JPY")
 ```
 
+Similarly the preferred currency format can be extracted from a locale with [Cldr.Currency.currency_format_from_locale/{1,2}](https://hexdocs.pm/ex_cldr_currencies/Cldr.Currency.html#currency_format_from_locale/1). When specifying the currency format in a locale, the two forms are `account` and `standard`. When introspecting the locale, the returned values are `:accounting` and `:standard` respectively.
+
 ```elixir
 # Currency format is either `account` or `standard`. `standard` is interpreted internally as
 # `:currency`
@@ -206,4 +208,38 @@ Cldr.Currency.currency_format_from_locale(~l"en-u-cf-account")
 
 ## Measurement System from Locale
 
+Different cultures, evening within the same language group, use different systems of measurement. The primary systems are the metric and the imperial (or UK) system. Although most territories use the metric system as the primary system of measurement, the US as the largest economy uses the imperial system and the UK itself uses a combination of the two and therefore that system retains its global relevance.
 
+Even the imperial system is split into two versions: that in use in the US (pints are 16oz for example) and the UK (where pints are 20oz). There are other differences too in how units are expresed even when the same units are shared in common.
+
+Even more than different spelling ("z" or "s"), the use of the culturally incorrect measurement system in an application delivers a jarring user experience, likely to reduce the level of engagement with a target audience. Localising units of measurement is covered in a future tutorial. For now the focus is on extracting the users preference from a locale with the function [Cldr.Unit.mreasuement_system_from_locale/{1,2}](https://hexdocs.pm/ex_cldr_units/Cldr.Unit.html#measurement_system_from_locale/2).
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"en")
+```
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"en-GB")
+```
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"fr")
+```
+
+As is the case with other locale configuration options, the default measurement system can also be overridden with the option `ms`. The available options are `ussystem`, `uksystem` and `metric`.
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"en-GB-u-ms-metric")
+```
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"en-GB-u-ms-ussystem")
+```
+
+```elixir
+MyApp.Backend.Unit.measurement_system_from_locale(~l"fr-u-ms-uksystem")
+```
+
+## Summary
+
+A locale is able to convery a significant number of user preferences and an application can benefit from leveraging this content and thereby improve audience engagement by honouring better a users' preferences.
