@@ -1,0 +1,139 @@
+# Localising Elixir Applications Using CLDR: Getting Started
+
+## Introduction
+
+All applications are localised whether consciously or not. Developers and designers make assumptions about the target audience for the applicaiton and make choices about how numbers are formatted, currencies are presented, units of measure are portrayed, messages are translated and so on.
+
+In an increasingly globalised economy, assuming that a homogeous audience is either an informed choice (my application is only relevant to audiences that communicate in a specific language) or it carries the unintended consequence of being a poor user experience for all audiences that don't communicate in the prescribed language.
+
+> Even assuming a single territory is the only target audience for an application does not remove the importance of considering localisation. 13% of the US population speaks Spanish as its first language. Switzerland has four national languages. China represents 42% of the worlds e-Commerce market; the US is 24%. Not making localisation decisions deliberately can significantly limit audience engagement.
+
+Why don't more developers and designers localise their applications?  Informal feedback suggests that "localisation is too hard and it slows down time to market. So we'll launch in one language first and localise later".
+
+The go-to libraries for localisation are [gettext](https://www.gnu.org/software/gettext/) for localising textual messages and [icu](http://site.icu-project.org) for localising everything else.  Whilst Elixir has a mature [gettext library](https://github.com/elixir-gettext/gettext) is wide use, there are no bindings available for `libicu` and even if there were, the API surface area is vast and difficult to get developers onboarded productively.
+
+The data that underpins `libicu` comes from the [CLDR](https://cldr.unicode.org) project. For Elixir, the [ex_cldr](https://github.com/elixir-cldr) project aims to provide for designers and developers:
+
+* A very approachable means for localisation.
+* An API that fits comfortably into an Elixir developers workflow.
+* An API that abstracts away the complexity of the `libicu` API for the majority of use cases without limiting the functionality available in more complex situations.
+
+## CLDR libraries for Elixir
+
+The [ex_cldr](https://github.com/elixir-cldr) project provides several libraries to support localisation:
+
+* [ex_cldr](https://github.com/elixir-cldr/cldr) which prerequisite for all other `ex_cldr` libraries and provides locale management as well as managing the underlying `CLDR` data content.
+* [ex_cldr_numbers](https://github.com/elixir-cldr/cldr_numbers) which provides functions for formatting and parsing numbers in a locale-specific manner.
+* [ex_cldr_dates_times](https://github.com/elixir-cldr/cldr_dates_times) which provides functions for formatting dates, times, date-times and intervals in a locale-specific manner
+* [ex_cldr_units](https://github.com/elixir-cldr/cldr_units) which provides functions to define, convert and format units of measure in a locale-specific manner. A library to [serialise units](https://github.com/elixir-cldr/cldr_units_sql) to a database is also available.
+* [ex_cldr_lists](https://github.com/elixir-cldr/cldr_lists) which provides functions to format lists in a locale-specific manner.
+* [ex_money](https://github.com/kipcole9/money) which provides functions to perform money math, financial calculations, currency conversion and money formatting in a locale-specific manner. A library to [serialise money](https://github.com/kipcole9/cldr_money_sql) to a database is also available.
+* [ex_cldr_calendars](https://github.com/elixir-cldr/cldr_calendars) which provides various calendar implementations including configurable "13 week" and financial year calendars. Additional libraries support [persian](https://github.com/elixir-cldr/cldr_calendars_persian), [coptic](https://github.com/elixir-cldr/cldr_calendars_coptic) and [ethiopic](https://github.com/elixir-cldr/cldr_calendars_ethiopic).
+* [ex_cldr_calendars_format](https://github.com/elixir-cldr/cldr_calendars_format) provides functions for formatting calendars (year and month) for use in either HTML or textual output.
+* [ex_cldr_currencies](https://github.com/elixir-cldr/cldr_currencies) which provides world currency introspection.
+* [ex_cldr_locale_display](https://github.com/elixir-cldr/cldr_locale_display) which provides functions to produce a localised representing of a given [BCP47 locale](https://tools.ietf.org/search/bcp47).
+* [cldr_html](https://github.com/elixir-cldr/cldr_html) provides HTML helpers for various `select` tags.
+* [ex_cldr_territories](https://github.com/Schultzer/cldr_territories) provides functions to introspect world territories (aka regions or countries).
+* [ex_cldr_messages](https://github.com/elixir-cldr/cldr_messages) implements the [ICU Message Format](https://phrase.com/blog/posts/guide-to-the-icu-message-format/) which is an alternative to `Gettext`.
+
+Each library is available on [hex.pm](https://hex.pm).
+
+## Installation
+
+Each required library must be configured in `mix.exs` in a `mix` project or using `Mix.install/2` for a standalone script. For this livebook and others in the series, the examples assume a standalone script. Only the required libraries need be configured. For these example livebooks, all libraries are configured.
+
+`ex_cldr` libraries perform a lot of work at compile time in order to optimise performance a runtime. Fore a new project, fetching dependencies and compiling them will take longer than a typical dependency given this additional compile-time work.
+
+```elixir
+Mix.install([
+  :ex_cldr_numbers,
+  :ex_cldr_dates_times,
+  :ex_cldr_lists,
+  :ex_cldr_units,
+  :ex_money,
+  :ex_cldr_messages,
+  :ex_cldr_locale_display
+])
+```
+
+## Configuration
+
+`ex_cldr`, like `gettext` uses the concept of a `backend module`. A backend module is a user-defined module into which functions are generated via a `use` macro to host and access `CLDR` data.  Typically only one backend module is required but there is no constraint on the number of backend modules that can be configured.
+
+A backend module is configured primarily by defining:
+
+1. The locales required by the application. CLDR defines over 500 locales and each locale comprises approximalely one megabyte of data. Since most applications are unlikely to support this many locales, constraining the application configuration improves compilation performance and reduces memory footprint.
+2. The localisation requirements of the application. Since the localisation requirements of an application may differ, the backend module needs to know which capabilities to generate. Each `ex_cldr` library definers a `provider` which is a module that is called at compile-time to configure the backend module.
+
+Full documentation on how to configure a backend module can be found [here](https://hexdocs.pm/ex_cldr/readme.html#backend-module-configuration).
+
+For this example, the locales `en`, `en-AU`, `fr`, `ja`, `he`, `ar`, `zh-Hans` and `zh-Hant` are configured. 
+The providers `Cldr.Number`, `Cldr.DateTime`, `Cldr.Unit`, `Cldr.List`, `Cldr.LocaleDisplay` and `Money` are configured.
+
+```elixir
+defmodule MyApp.Backend do
+  use Cldr,
+    locales: ["en", "en-AU", "fr", "ja", "he", "ar", "zh-Hans", "zh-Hant"],
+    default_locale: "en",
+    providers: [Cldr.Number, Cldr.DateTime, Cldr.Unit, Cldr.List, Cldr.LocaleDisplay, Money]
+end
+```
+
+Locales are downloaded at compile-time when configured in a backend. Downloading happens only the first time the backend is configured or when `ex_cldr` is upgraded. This ensures that the right locale data is always configured for use with the right version of `ex_cldr`.
+
+## Basic Locale Introspection
+
+Localising can now begin. Typically functions are called on the `backend` module and that is the approach followed in these tutorials. Here are some basic introspections that can be performed:
+
+```elixir
+MyApp.Backend.known_locale_names()
+```
+
+```elixir
+MyApp.Backend.default_locale()
+```
+
+This result is the `inspect` output for a `Cldr.LanguageTag.t()` type which is the underlying representation of a locale in `ex_cldr`. To show a user display value of the locale, the `display_name/2` function can be called.
+
+```elixir
+# Output a display representation of the default locale
+MyApp.Backend.LocaleDisplay.display_name(MyApp.Backend.default_locale())
+```
+
+Many commonly used functions can also be called on the main `Cldr` module. These functions also often depend on a `:default_backend` being configured in the application evironment. This would normally be configured in `config.exs` or more preferably in `runtime.exs`. In these examples, the default backend is set by calling `Application.put_env/3`.
+
+```elixir
+Application.put_env(:ex_cldr, :default_backend, MyApp.Backend)
+```
+
+Now it's possible to call [Cldr.display_name/2](https://hexdocs.pm/ex_cldr/Cldr.html#display_name/2) which actually calls the `Cldr.DisplayName` protocol since rendering a display name is a common requirement of different CLDR data structures.
+
+```elixir
+Cldr.display_name(MyApp.Backend.default_locale())
+```
+
+For user interface requirements its a common requirement to allow users to choose the locale in which they prefer the application to operate. A list of locale display names can be rendered like this:
+
+```elixir
+for locale <- MyApp.Backend.known_locale_names() do
+  with {:ok, locale} <- MyApp.Backend.validate_locale(locale) do
+    Cldr.display_name(locale)
+  end
+end
+```
+
+The local display names have been returned but its not going to be a great user experience. Because this list makes the assumption that all users can identify their locale in English (the default locale). It is preferable to list the locales using the localised display name of that locale to make it easier for a user to select their preference.
+
+```elixir
+for locale <- MyApp.Backend.known_locale_names() do
+  with {:ok, locale} <- MyApp.Backend.validate_locale(locale) do
+    Cldr.display_name(locale, locale: locale)
+  end
+end
+```
+
+Now the locales are display using their own locale data (how meta!). There are still issues with the order in which the locales are presented - for a good user experience they should be sorted using an appropriate collation. The function [Cldr.HTML.Locale.select/3](https://hexdocs.pm/cldr_html/readme.html#locale-selection) in the library [cldr_html](https://github.com/elixir-cldr/cldr_html) is the preferred way to list locales in an HTML form for user selection.
+
+## Summary
+
+This tutorial has shown how to install and configure `ex_cldr` libraries, configure a backend module and perform basic locale introspection. In the next tutorial, more detailed locale introspection will be covered since this is the basis for all future localisation functions.

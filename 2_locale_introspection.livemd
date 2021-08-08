@@ -1,0 +1,209 @@
+# Localising Elixir Applications Using CLDR
+
+## Locale Introspection
+
+[BCP47](https://tools.ietf.org/search/bcp47) defines the format of a locale used in `ex_cldr`. Locales are used to represent the users communication preferences regarding language, script, territory, dates and times, units of measure, calendar and other factors that combine to deliver a good user experience.
+
+Most developers are familiar with a locale such as `en` (english) and `fr` (meaning French). Many recognise that `de-CH` means "Germand as spoken in Switzerland" and `en-AU` means "English as spoken in Australia".
+
+However a `BCP47` locale can convey considerably more information. Consider the example `fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi`. What does it convey?
+
+First step is to set up the `ex_cldr` working environment and then exploration can begin.
+
+## Configure the CLDR environment
+
+The configuration is the same as that used in the introductory tutorial with the addition of the "pt" locale and the persian calendar.
+
+```elixir
+# Install dependencies
+Mix.install([
+  :ex_cldr_numbers,
+  :ex_cldr_dates_times,
+  :ex_cldr_lists,
+  :ex_cldr_units,
+  :ex_cldr_calendars,
+  :ex_money,
+  :ex_cldr_messages,
+  :ex_cldr_locale_display,
+  :ex_cldr_calendars_persian
+])
+
+# Define a backend module
+defmodule MyApp.Backend do
+  use Cldr,
+    locales: ["en", "en-AU", "fr", "ja", "pt", "he", "ar", "zh-Hans", "zh-Hant"],
+    default_locale: "en",
+    providers: [Cldr.Number, Cldr.DateTime, Cldr.Unit, Cldr.List, Cldr.LocaleDisplay, Money]
+end
+
+# Set a default app-wide default backend
+Application.put_env(:ex_cldr, :default_backend, MyApp.Backend)
+```
+
+## Introspecting a complex locale
+
+Returning now to the example locale of `fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi`, the function `Cldr.display_name/2` can give some insight.
+
+```elixir
+# Also use the sigil `Cldr.LanguageTag.Sigil` 
+import Cldr.LanguageTag.Sigil
+
+Cldr.display_name(~l"fr-CA-u-ca-gregory-nu-arab-cu-usd-cf-account-ms-uksystem-t-hi")
+```
+
+There is a wealth of information returned which can be used to guide localisation towards a good user experience. This display name is showing that this locale is:
+
+* Language French, as spoken in Canada
+* Using the Latin script
+* Was transformed originally from Hindi
+* Uses the Gregorian calendar
+* Wishes money amounts to be formatted in Accounting format
+* Wishes money amounts to be be in US dollars
+* Uses the UK (Imperial) measurement system
+
+## Territory from Locale
+
+`ex_cldr` provides a number of functions that aid introspection of a locale. In most cases a sensible default it identified when a locale does not specifically define a data item.
+
+```elixir
+# A simple locale to start with
+{:ok, locale} = MyApp.Backend.validate_locale("en")
+```
+
+> Notice that in `ex_cldr` the term "territory" is used in preference to "country". A country is a political entity whereas territory is a geographic term. There are country definitions that are [in dispute](https://en.wikipedia.org/wiki/List_of_territorial_disputes) around the world whereas geographic definitions rarely so.  CLDR uses both terms "territory" and "region". `ex_cldr` uses the term "territory".
+
+```elixir
+# What is the territory associated with this locale?
+MyApp.Backend.Locale.territory_from_locale(locale)
+```
+
+Even though no territory was specified, `ex_cldr` returned the territory code `:US`. There is always a default territory for a given locale. Where more than one territory uses the same language, the territory with the largest population is chosen if the locale does not include a specific territory. This can produce surprising results. For example:
+
+```elixir
+MyApp.Backend.Locale.territory_from_locale(~l"pt")
+```
+
+Which returns `:BR` (Brazil) as the territory for the locale `pt` even though the language is "Portuguese".  To enforce the territory of "Portugal", the locale `pt-PT` would be required:
+
+```elixir
+MyApp.Backend.Locale.territory_from_locale(~l"pt-PT")
+```
+
+Sometimes a user would like their preferred territory to be different from that normally interpretted by a locale. For example, a user may specify the locale "en" which, as we say earlier, implies the territory "US". This may be exactly what the user prefers for most localisation requirements (like currency, number formatting and measurement system) but they would like to have the region to be considered differently for other purposes. This can be accomlished with the `rg` flag.
+
+```elixir
+MyApp.Backend.Locale.territory_from_locale(~l"en-US-u-rg-AUZZZZ")
+```
+
+The region code in this case is the ISO3166 Alpha-2 territory code followed by "ZZZZ" that is required for syntax reasons.
+
+## Calendar from Locale
+
+Even though the Gregorian calendar is in common use in most territories there are several exceptions and there are many different calendar types in use around the world. `Cldr.Calendar.calendar_from_locale/1` returns a `t:Cldr.Calendar` module that complies with the `Calendar` behaviour with some additional capabilities.
+
+The specified calendar must be valid for the territory (whether specified or implied) otherwise an error is returned.
+
+The calendars known to `ex_cldr` is shorter than the list of calendars known to CLDR (and is based upon implementations being available in `ex_cldr_calendars`). The supported calendars are:
+
+* `gregorian` (the default)
+* `coptic`
+* `persian`
+* `ethiopic`
+
+```elixir
+Cldr.Calendar.calendar_from_locale(~l"en")
+```
+
+```elixir
+Cldr.Calendar.calendar_from_locale(~l"en-IR-u-ca-persian")
+```
+
+```elixir
+# The calendars known to CLDR. Only :gregorian, :coptic, :ethiopic and :persian
+# are supported in `ex_cldr`
+Cldr.known_calendars()
+```
+
+## Time zone from Locale
+
+User experience it particularly sensitive to identfying the right time zone preferred by the audience. Some developers make the assumption that the appropriate timezone is that time zone of the IP address of the current connection. Some the time zone of the locale's territory. Both of these strategies may degrade a user's experience:
+
+* The IP address identified by the request may not be the user's preference. IP address to location resolution is, itself, error prone. When a user is travelling
+* The users calculated location may not be the users preferred time zone, especially when people are travelling
+  As in many localisation cases, the preferred approach is to allow the user to specify the timezone in which they wish dates and times to be presented, with a sensible default being available.
+
+`ex_cldr` aims to provide a sensible default, where possible, with the function `Cldr.Locale.timezone_from_locale/{1, 2}`.
+
+```elixir
+Cldr.Locale.timezone_from_locale(~l"fr")
+```
+
+Many territories have more than one time zone. In such cases an error is returned since no automated decision can be made.
+
+```elixir
+Cldr.Locale.timezone_from_locale(~l"en-AU")
+```
+
+It is possible to specify the requested time zone in the locale using the `tz` option. However the time zone specification is *not* the same as the [tz database](https://en.wikipedia.org/wiki/Tz_database) since
+
+* CLDR values stability and the zone names in the tz database can change over time
+* The syntax of the language tag makes using the tz database zone names impractical
+
+Time zone names in CLDR are primarily based upon [United Nationals Code for Tade and Transport Locations (UN/LOCODE)](https://unece.org/trade/cefact/unlocode-code-list-country-and-territory) codes since they are stable and syntactically acceptable because they are five alpha characters.
+
+```elixir
+Cldr.Locale.timezone_from_locale(~l"en-AU-u-tz-ausyd")
+```
+
+The known time zone codes in CLDR can be retrieved with `Cldr.Timezone.timezones/0`.  For example, to see the mapping for time zones in the US:
+
+```elixir
+Cldr.Timezone.timezones()
+|> Enum.filter(fn {zone_code, _zone_names} -> String.starts_with?(zone_code, "us") end)
+```
+
+```elixir
+# The timezone for Detroit
+Cldr.Locale.timezone_from_locale(~l"en-AU-u-tz-usdet")
+```
+
+## Currency from Locale
+
+The users preferred currency can be derived from a locale. A currency can be specified, or it can be implied given the territory determined for the locale. In addition the format preferred for money amounts can be expressed.
+
+The accounting format determines the default way in which numbers are formatted. Number formatting is the subject of part three of this tutorial.
+
+```elixir
+# Territory is US which has a currency default of USD
+Cldr.Currency.currency_from_locale(~l"en")
+```
+
+```elixir
+# Currency for Australia is :AUD
+Cldr.Currency.currency_from_locale(~l"en-AU")
+```
+
+```elixir
+# Force curency to be Japanese Yen
+Cldr.Currency.currency_from_locale(~l"en-AU-u-cu-JPY")
+```
+
+```elixir
+# Currency format is either `account` or `standard`. `standard` is interpreted internally as
+# `:currency`
+Cldr.Currency.currency_format_from_locale(~l"en")
+```
+
+```elixir
+Cldr.Currency.currency_format_from_locale(~l"en-u-cf-standard")
+```
+
+```elixir
+# The other format is `account` which internally is known as
+# `:accounting`
+Cldr.Currency.currency_format_from_locale(~l"en-u-cf-account")
+```
+
+## Measurement System from Locale
+
+
