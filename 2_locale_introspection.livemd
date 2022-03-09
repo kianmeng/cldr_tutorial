@@ -89,7 +89,7 @@ Which returns `:BR` (Brazil) as the territory for the locale `pt` even though th
 MyApp.Backend.Locale.territory_from_locale(~l"pt-PT")
 ```
 
-Sometimes a user would like their preferred territory to be different from that normally interpretted by a locale. For example, a user may specify the locale "en" which, as noted earlier, implies the territory "US". This may be exactly what the user prefers for most localisation requirements (like currency, number formatting and measurement system) but they would like to have the region to be considered differently for other purposes. This can be accomlished with the `rg` option.
+Sometimes a user would like their preferred territory to be different from that normally interpreted by a locale. For example, a user may specify the locale "en" which, as noted earlier, implies the territory "US". This may be exactly what the user prefers for most localisation requirements (like currency, number formatting and measurement system) but they would like to have the region to be considered differently for other purposes. This can be accomlished with the `rg` option.
 
 ```elixir
 MyApp.Backend.Locale.territory_from_locale(~l"en-US-u-rg-AUZZZZ")
@@ -242,4 +242,4 @@ MyApp.Backend.Unit.measurement_system_from_locale(~l"fr-u-ms-uksystem")
 
 ## Summary
 
-A locale is able to convery a significant number of user preferences and an application can benefit from leveraging this content and thereby improve audience engagement by honouring better a users' preferences.
+A locale is able to convert a significant number of user preferences and an application can benefit from leveraging this content and thereby improve audience engagement by honouring better a users' preferences.

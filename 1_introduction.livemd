@@ -2,7 +2,7 @@
 
 ## Introduction
 
-All applications are localised whether consciously or not. Developers and designers make assumptions about the target audience for the applicaiton and make choices about how numbers are formatted, currencies are presented, units of measure are portrayed, messages are translated and so on.
+All applications are localised whether consciously or not. Developers and designers make assumptions about the target audience for the application and make choices about how numbers are formatted, currencies are presented, units of measure are portrayed, messages are translated and so on.
 
 In an increasingly globalised economy, assuming that a homogeous audience is either an informed choice (my application is only relevant to audiences that communicate in a specific language) or it carries the unintended consequence of being a poor user experience for all audiences that don't communicate in the prescribed language.
 
@@ -100,7 +100,7 @@ This result is the `inspect` output for a `Cldr.LanguageTag.t()` type which is t
 MyApp.Backend.LocaleDisplay.display_name(MyApp.Backend.default_locale())
 ```
 
-Many commonly used functions can also be called on the main `Cldr` module. These functions also often depend on a `:default_backend` being configured in the application evironment. This would normally be configured in `config.exs` or more preferably in `runtime.exs`. In these examples, the default backend is set by calling `Application.put_env/3`.
+Many commonly used functions can also be called on the main `Cldr` module. These functions also often depend on a `:default_backend` being configured in the application environment. This would normally be configured in `config.exs` or more preferably in `runtime.exs`. In these examples, the default backend is set by calling `Application.put_env/3`.
 
 ```elixir
 Application.put_env(:ex_cldr, :default_backend, MyApp.Backend)
